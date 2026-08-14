@@ -1,0 +1,149 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ALISA · Anticipos</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+<style>
+:root{--n:#173e5d;--n2:#2c6484;--bg:#f3f7fa;--line:#dbe5ec;--text:#17344c;--mut:#6b8192;--r:#bd2d2d;--o:#ae6300;--g:#07835f;--b:#1e6f99}
+*{box-sizing:border-box}body{margin:0;font-family:Segoe UI,Arial,sans-serif;background:var(--bg);color:var(--text)}
+.top{background:linear-gradient(120deg,var(--n),var(--n2));color:white;padding:20px 28px;display:flex;justify-content:space-between;gap:14px;align-items:center}
+.top h1{margin:0;font-size:26px}.top p{margin:5px 0 0;opacity:.9}.badge{background:rgba(255,255,255,.16);padding:8px 11px;border-radius:18px;font-weight:800;font-size:12px}
+.wrap{max-width:1750px;margin:auto;padding:22px}.panel{background:#fff;border:1px solid var(--line);border-radius:16px;box-shadow:0 10px 28px rgba(31,66,90,.07)}
+.kpis{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:16px}.k{padding:18px}.k small{font-weight:900;color:var(--mut)}.k strong{display:block;font-size:34px;margin-top:7px}
+.toolbar{padding:13px;display:flex;gap:9px;align-items:center;flex-wrap:wrap;margin-bottom:14px}.toolbar input,.toolbar select{border:1px solid #ccd9e2;border-radius:10px;padding:10px 11px;font:inherit}.toolbar input[type=text]{min-width:260px}.push{margin-left:auto;color:var(--mut);font-size:12px}
+.btn{border:0;border-radius:10px;padding:10px 14px;font-weight:800;cursor:pointer}.btn.s{background:#eaf1f6;color:var(--n)}.btn.p{background:var(--n);color:white}
+.tabs{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px}.tab{border:1px solid var(--line);background:white;color:var(--n);padding:9px 14px;border-radius:20px;font-weight:800;cursor:pointer}.tab.a{background:var(--n);color:white}
+.tableWrap{overflow:auto}.grid{width:100%;border-collapse:separate;border-spacing:0;min-width:1450px}.grid th{position:sticky;top:0;background:#edf4f8;padding:11px 9px;text-align:left;font-size:12px;z-index:2}.grid td{padding:12px 9px;border-top:1px solid #e7eef3;font-size:13px;vertical-align:middle}
+.pill{display:inline-block;padding:6px 9px;border-radius:16px;font-weight:800;font-size:12px}.es{background:#fdecec;color:var(--r)}.gt{background:#fff4df;color:var(--o)}.fin{background:#e8f7f1;color:var(--g)}.rev{background:#eaf4fa;color:var(--b)}
+.mini{border:0;border-radius:9px;padding:8px 10px;font-weight:800;cursor:pointer}.mini.esb{background:#fdecec;color:var(--r)}.mini.gtb{background:#fff4df;color:var(--o)}.mini.undo{background:#edf3f6;color:var(--n)}
+details.panel{padding:15px 18px;margin-top:18px}summary{cursor:pointer;font-weight:900}.importBox{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:14px}.msg{margin-top:10px;padding:10px 12px;border-radius:10px;background:#eef5f9;font-size:13px}.ok{background:#eaf7f1;color:#087151}.err{background:#fdecec;color:#9d2525}
+@media(max-width:900px){.kpis{grid-template-columns:repeat(2,1fr)}.push{margin-left:0;width:100%}}
+</style>
+</head>
+<body>
+<header class="top">
+<div><h1>ALISA · Control de Anticipos</h1><p>Tablero compartido · cambios en tiempo real</p></div>
+<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><span id="conn" class="badge">CONECTANDO</span><span id="countdown" class="badge">—</span></div>
+</header>
+<main class="wrap">
+<section class="kpis">
+<div class="panel k"><small>TOTAL</small><strong id="kt">0</strong></div>
+<div class="panel k"><small>PENDIENTE EL SALVADOR</small><strong id="ke" style="color:var(--r)">0</strong></div>
+<div class="panel k"><small>PENDIENTE GUATEMALA</small><strong id="kg" style="color:var(--o)">0</strong></div>
+<div class="panel k"><small>EN REVISIÓN</small><strong id="kr">0</strong></div>
+<div class="panel k"><small>FINALIZADOS</small><strong id="kf" style="color:var(--g)">0</strong></div>
+</section>
+
+<section class="panel toolbar">
+<input id="q" type="text" placeholder="Buscar anticipo, unidad, proveedor, TT">
+<select id="rf"><option value="">Todos los responsables</option><option>El Salvador</option><option>Guatemala</option><option>Finalizado</option></select>
+<input id="actor" type="text" placeholder="Tu nombre (opcional)" style="min-width:190px">
+<button id="ref" class="btn s">Actualizar</button>
+<span id="last" class="push">—</span>
+</section>
+
+<div id="tabs" class="tabs"></div>
+
+<section class="panel tableWrap">
+<table class="grid">
+<thead><tr><th>ANTICIPO</th><th>MES</th><th>UNIDAD</th><th>PROVEEDOR</th><th>MONTO</th><th>TT</th><th>ES</th><th>GT</th><th>RESPONSABLE</th><th>ÚLTIMO CAMBIO</th><th>POR</th><th>ACCIÓN</th></tr></thead>
+<tbody id="body"></tbody>
+</table>
+</section>
+
+<details class="panel">
+<summary>Actualizar datos desde Excel</summary>
+<div class="importBox">
+<input id="excel" type="file" accept=".xlsx,.xls">
+<button id="import" class="btn p">Importar / actualizar</button>
+</div>
+<div id="imsg" class="msg">La importación actualiza los datos del anticipo y conserva los estados Hecho/Pendiente existentes.</div>
+</details>
+</main>
+
+<script>
+const URL='https://tggwhwveiimdeisjbjgp.supabase.co';
+const KEY='sb_publishable_GfgePEohuGAMYPfW8EGxzQ_hOM-Zzui';
+const s=window.supabase.createClient(URL,KEY);
+const $=id=>document.getElementById(id);
+let rows=[],period='';
+
+$('actor').value=localStorage.getItem('alisa_actor')||'';
+$('actor').oninput=()=>localStorage.setItem('alisa_actor',$('actor').value);
+
+const esc=x=>String(x??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+const money=v=>v==null?'—':new Intl.NumberFormat('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}).format(Number(v));
+const dt=v=>v?new Intl.DateTimeFormat('es-GT',{dateStyle:'short',timeStyle:'short'}).format(new Date(v)):'—';
+function ml(p){if(!p)return'—';const [y,m]=p.split('-'),a=['','ENERO','FEBRERO','MARZO','ABRIL','MAYO','JUNIO','JULIO','AGOSTO','SEPTIEMBRE','OCTUBRE','NOVIEMBRE','DICIEMBRE'];return a[+m]+' '+y}
+
+async function load(){
+  const {data,error}=await s.from('anticipos').select('*').order('periodo',{ascending:false}).order('numero_anticipo',{ascending:true});
+  if(error){alert('No se pudieron leer los anticipos: '+error.message);return}
+  rows=data||[];$('last').textContent='Última lectura '+new Date().toLocaleTimeString('es-GT');tabs();render();
+}
+function filt(){
+  const q=$('q').value.toLowerCase().trim(),r=$('rf').value;
+  return rows.filter(x=>(!period||x.periodo===period)&&(!r||x.responsable_actual===r)&&(!q||[x.numero_anticipo,x.unidad,x.proveedor,x.tt,x.centro_costo].some(v=>String(v??'').toLowerCase().includes(q))));
+}
+function tabs(){
+  const ps=[...new Set(rows.map(x=>x.periodo))].sort().reverse();
+  $('tabs').innerHTML='<button class="tab '+(!period?'a':'')+'" data-p="">Todos</button>'+ps.map(p=>'<button class="tab '+(period===p?'a':'')+'" data-p="'+p+'">'+ml(p)+'</button>').join('');
+  document.querySelectorAll('.tab').forEach(b=>b.onclick=()=>{period=b.dataset.p;tabs();render()});
+}
+function render(){
+  const v=filt();$('kt').textContent=v.length;$('ke').textContent=v.filter(x=>x.responsable_actual==='El Salvador').length;$('kg').textContent=v.filter(x=>x.responsable_actual==='Guatemala').length;$('kr').textContent=v.filter(x=>x.responsable_actual==='Revisión').length;$('kf').textContent=v.filter(x=>x.responsable_actual==='Finalizado').length;
+  $('body').innerHTML=v.map(x=>{
+    const c=x.responsable_actual==='El Salvador'?'es':x.responsable_actual==='Guatemala'?'gt':x.responsable_actual==='Finalizado'?'fin':'rev';
+    let act='';
+    if(x.responsable_actual==='El Salvador')act='<button class="mini esb" onclick="go('+x.id+',\\'hecho_es\\')">Hecho ES</button>';
+    else if(x.responsable_actual==='Guatemala')act='<button class="mini gtb" onclick="go('+x.id+',\\'hecho_gt\\')">Hecho GT</button> <button class="mini undo" onclick="go('+x.id+',\\'deshacer\\')">Deshacer</button>';
+    else if(x.responsable_actual==='Finalizado')act='<button class="mini undo" onclick="go('+x.id+',\\'deshacer\\')">Deshacer</button>';
+    return '<tr><td><b>'+esc(x.numero_anticipo)+'</b></td><td>'+esc(ml(x.periodo))+'</td><td>'+esc(x.unidad)+'</td><td>'+esc(x.proveedor)+'</td><td>'+money(x.monto_anticipo)+'</td><td>'+esc(x.tt||'—')+'</td><td>'+esc(x.estado_es)+'</td><td>'+esc(x.estado_gt)+'</td><td><span class="pill '+c+'">'+esc(x.responsable_actual)+'</span></td><td>'+esc(dt(x.ultima_modificacion_at))+'</td><td>'+esc(x.ultima_modificacion_email||'—')+'</td><td>'+act+'</td></tr>';
+  }).join('');
+}
+async function go(id,accion){
+  const actor=$('actor').value.trim()||'Compartido';
+  const {error}=await s.rpc('procesar_anticipo_publico',{p_anticipo_id:id,p_accion:accion,p_actor:actor});
+  if(error){alert(error.message);return}
+  await load();
+}
+$('q').oninput=render;$('rf').onchange=render;$('ref').onclick=load;
+
+const MONTHS={ENERO:1,FEBRERO:2,MARZO:3,ABRIL:4,MAYO:5,JUNIO:6,JULIO:7,AGOSTO:8,SEPTIEMBRE:9,OCTUBRE:10,NOVIEMBRE:11,DICIEMBRE:12};
+const text=v=>v===undefined||v===null||v===''?null:String(v).trim();
+const num=v=>{if(v===undefined||v===null||v==='')return null;const n=Number(String(v).replace(/,/g,''));return Number.isFinite(n)?n:null};
+const antNo=v=>{if(v===undefined||v===null||v==='')return null;let z=String(v).trim();if(/^\d+(\.0+)?$/.test(z))z=String(parseInt(z));return z.toUpperCase().startsWith('ANT-')?z:'ANT-'+z};
+const iso=v=>v instanceof Date&&!isNaN(v)?v.toISOString().slice(0,10):null;
+function parseBook(wb){
+  const out=[];
+  wb.SheetNames.forEach(name=>{
+    const mt=name.trim().toUpperCase().match(/^(ENERO|FEBRERO|MARZO|ABRIL|MAYO|JUNIO|JULIO|AGOSTO|SEPTIEMBRE|OCTUBRE|NOVIEMBRE|DICIEMBRE)\s+(\d{4})$/);if(!mt)return;
+    const periodo=mt[2]+'-'+String(MONTHS[mt[1]]).padStart(2,'0')+'-01';
+    const m=XLSX.utils.sheet_to_json(wb.Sheets[name],{header:1,defval:null,raw:true});let h=-1;
+    for(let i=0;i<Math.min(15,m.length);i++){if((m[i]||[]).some(x=>String(x??'').toUpperCase().includes('NUMERO DE ANTICIPO')||String(x??'').toUpperCase().includes('NÚMERO DE ANTICIPO'))){h=i;break}}
+    if(h<0)return;
+    m.slice(h+1).forEach(r=>{const a=antNo(r[1]);if(!a)return;out.push({numero_anticipo:a,periodo,fecha:iso(r[0]),codigo_sn:text(r[2]),proveedor:text(r[3]),info_detallada:text(r[4]),centro_costo:text(r[5]),unidad:text(r[6]),monto_anticipo:num(r[7]),tt:text(r[17]),observaciones:text(r[18]),notas_siguiente_mes:text(r[19])})});
+  });
+  return out;
+}
+$('import').onclick=async()=>{
+  const f=$('excel').files[0];if(!f){alert('Selecciona el Excel.');return}
+  $('import').disabled=true;$('imsg').className='msg';$('imsg').textContent='Leyendo Excel...';
+  try{
+    const ab=await f.arrayBuffer(),wb=XLSX.read(ab,{type:'array',cellDates:true}),data=parseBook(wb);
+    if(!data.length)throw new Error('No encontré anticipos en pestañas MES AÑO.');
+    $('imsg').textContent='Cargando '+data.length+' anticipos...';
+    for(let i=0;i<data.length;i+=150){const {error}=await s.rpc('importar_anticipos_publico',{p_rows:data.slice(i,i+150)});if(error)throw error}
+    $('imsg').className='msg ok';$('imsg').textContent='Listo: '+data.length+' anticipos importados/actualizados.';await load();
+  }catch(e){$('imsg').className='msg err';$('imsg').textContent='Error: '+e.message}
+  finally{$('import').disabled=false}
+};
+
+s.channel('alisa-simple').on('postgres_changes',{event:'*',schema:'public',table:'anticipos'},()=>load()).subscribe(st=>$('conn').textContent=st==='SUBSCRIBED'?'EN TIEMPO REAL':'EN LÍNEA');
+load();
+setInterval(load,30000);
+</script>
+</body></html>
