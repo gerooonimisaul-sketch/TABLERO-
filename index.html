@@ -4,7 +4,6 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>ALISA · Anticipos</title>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
 <style>
 :root{--n:#173e5d;--n2:#2c6484;--bg:#f3f7fa;--line:#dbe5ec;--text:#17344c;--mut:#6b8192;--r:#bd2d2d;--o:#ae6300;--g:#07835f;--b:#1e6f99}
@@ -65,98 +64,29 @@ details.panel{padding:15px 18px;margin-top:18px}summary{cursor:pointer;font-weig
 </main>
 
 <script>
-const URL='https://tggwhwveiimdeisjbjgp.supabase.co';
+const SUPABASE_URL='https://tggwhwveiimdeisjbjgp.supabase.co';
 const KEY='sb_publishable_GfgePEohuGAMYPfW8EGxzQ_hOM-Zzui';
-const s=window.supabase.createClient(URL,KEY);
+const REST=SUPABASE_URL+'/rest/v1';
 const $=id=>document.getElementById(id);
-let rows=[],period='';
-
+let rows=[],period='',loading=false;
 $('actor').value=localStorage.getItem('alisa_actor')||'';
 $('actor').oninput=()=>localStorage.setItem('alisa_actor',$('actor').value);
-
 const esc=x=>String(x??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
 const money=v=>v==null?'—':new Intl.NumberFormat('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}).format(Number(v));
 const dt=v=>v?new Intl.DateTimeFormat('es-GT',{dateStyle:'short',timeStyle:'short'}).format(new Date(v)):'—';
 function ml(p){if(!p)return'—';const [y,m]=p.split('-'),a=['','ENERO','FEBRERO','MARZO','ABRIL','MAYO','JUNIO','JULIO','AGOSTO','SEPTIEMBRE','OCTUBRE','NOVIEMBRE','DICIEMBRE'];return a[+m]+' '+y}
-
-async function load(){
-  const {data,error}=await s.from('anticipos').select('*').order('periodo',{ascending:false}).order('numero_anticipo',{ascending:true});
-  if(error){alert('No se pudieron leer los anticipos: '+error.message);return}
-  rows=data||[];$('last').textContent='Última lectura '+new Date().toLocaleTimeString('es-GT');tabs();render();
-}
-function filt(){
-  const q=$('q').value.toLowerCase().trim(),r=$('rf').value;
-  return rows.filter(x=>(!period||x.periodo===period)&&(!r||x.responsable_actual===r)&&(!q||[x.numero_anticipo,x.unidad,x.proveedor,x.tt,x.centro_costo].some(v=>String(v??'').toLowerCase().includes(q))));
-}
-function tabs(){
-  const ps=[...new Set(rows.map(x=>x.periodo))].sort().reverse();
-  $('tabs').innerHTML='<button class="tab '+(!period?'a':'')+'" data-p="">Todos</button>'+ps.map(p=>'<button class="tab '+(period===p?'a':'')+'" data-p="'+p+'">'+ml(p)+'</button>').join('');
-  document.querySelectorAll('.tab').forEach(b=>b.onclick=()=>{period=b.dataset.p;tabs();render()});
-}
-function render(){
-  const v=filt();$('kt').textContent=v.length;$('ke').textContent=v.filter(x=>x.responsable_actual==='El Salvador').length;$('kg').textContent=v.filter(x=>x.responsable_actual==='Guatemala').length;$('kr').textContent=v.filter(x=>x.responsable_actual==='Revisión').length;$('kf').textContent=v.filter(x=>x.responsable_actual==='Finalizado').length;
-  $('body').innerHTML=v.map(x=>{
-    const c=x.responsable_actual==='El Salvador'?'es':x.responsable_actual==='Guatemala'?'gt':x.responsable_actual==='Finalizado'?'fin':'rev';
-    let act='';
-    if(x.responsable_actual==='El Salvador')act='<button class="mini esb actionBtn" data-id="'+x.id+'" data-action="hecho_es">Hecho ES</button>';
-    else if(x.responsable_actual==='Guatemala')act='<button class="mini gtb actionBtn" data-id="'+x.id+'" data-action="hecho_gt">Hecho GT</button> <button class="mini undo actionBtn" data-id="'+x.id+'" data-action="deshacer">Deshacer</button>';
-    else if(x.responsable_actual==='Finalizado')act='<button class="mini undo actionBtn" data-id="'+x.id+'" data-action="deshacer">Deshacer</button>';
-    return '<tr><td><b>'+esc(x.numero_anticipo)+'</b></td><td>'+esc(ml(x.periodo))+'</td><td>'+esc(x.unidad)+'</td><td>'+esc(x.proveedor)+'</td><td>'+money(x.monto_anticipo)+'</td><td>'+esc(x.tt||'—')+'</td><td>'+esc(x.estado_es)+'</td><td>'+esc(x.estado_gt)+'</td><td><span class="pill '+c+'">'+esc(x.responsable_actual)+'</span></td><td>'+esc(dt(x.ultima_modificacion_at))+'</td><td>'+esc(x.ultima_modificacion_email||'—')+'</td><td>'+act+'</td></tr>';
-  }).join('');
-  document.querySelectorAll('.actionBtn').forEach(btn=>{
-    btn.onclick=()=>go(Number(btn.dataset.id),btn.dataset.action);
-  });
-}
-async function go(id,accion){
-  const actor=$('actor').value.trim()||'Compartido';
-  const {error}=await s.rpc('procesar_anticipo_publico',{p_anticipo_id:id,p_accion:accion,p_actor:actor});
-  if(error){alert(error.message);return}
-  await load();
-}
-$('q').oninput=render;$('rf').onchange=render;$('ref').onclick=load;
-
+async function api(path,options={}){const headers={'apikey':KEY,'Content-Type':'application/json',...(options.headers||{})};const res=await fetch(REST+'/'+path,{...options,headers});const txt=await res.text();if(!res.ok){let msg=txt;try{const j=JSON.parse(txt);msg=j.message||j.hint||j.code||txt}catch{}throw new Error(msg||('HTTP '+res.status))}if(!txt)return null;try{return JSON.parse(txt)}catch{return txt}}
+async function load(silent=false){if(loading)return;loading=true;try{const data=await api('anticipos?select=*&order=periodo.desc,numero_anticipo.asc');rows=Array.isArray(data)?data:[];$('conn').textContent='EN LÍNEA';$('conn').style.background='rgba(7,131,95,.85)';$('last').textContent='Última lectura '+new Date().toLocaleTimeString('es-GT');tabs();render()}catch(e){$('conn').textContent='ERROR CONEXIÓN';$('conn').style.background='rgba(189,45,45,.85)';if(!silent)alert('No se pudieron leer los anticipos: '+e.message)}finally{loading=false}}
+function filt(){const q=$('q').value.toLowerCase().trim(),r=$('rf').value;return rows.filter(x=>(!period||x.periodo===period)&&(!r||x.responsable_actual===r)&&(!q||[x.numero_anticipo,x.unidad,x.proveedor,x.tt,x.centro_costo].some(v=>String(v??'').toLowerCase().includes(q))))}
+function tabs(){const ps=[...new Set(rows.map(x=>x.periodo))].sort().reverse();$('tabs').innerHTML='<button class="tab '+(!period?'a':'')+'" data-p="">Todos</button>'+ps.map(p=>'<button class="tab '+(period===p?'a':'')+'" data-p="'+p+'">'+ml(p)+'</button>').join('');document.querySelectorAll('.tab').forEach(b=>b.onclick=()=>{period=b.dataset.p;tabs();render()})}
+function render(){const v=filt();$('kt').textContent=v.length;$('ke').textContent=v.filter(x=>x.responsable_actual==='El Salvador').length;$('kg').textContent=v.filter(x=>x.responsable_actual==='Guatemala').length;$('kr').textContent=v.filter(x=>x.responsable_actual==='Revisión').length;$('kf').textContent=v.filter(x=>x.responsable_actual==='Finalizado').length;$('body').innerHTML=v.map(x=>{const c=x.responsable_actual==='El Salvador'?'es':x.responsable_actual==='Guatemala'?'gt':x.responsable_actual==='Finalizado'?'fin':'rev';let act='';if(x.responsable_actual==='El Salvador')act='<button class="mini esb actionBtn" data-id="'+x.id+'" data-action="hecho_es">Hecho ES</button>';else if(x.responsable_actual==='Guatemala')act='<button class="mini gtb actionBtn" data-id="'+x.id+'" data-action="hecho_gt">Hecho GT</button> <button class="mini undo actionBtn" data-id="'+x.id+'" data-action="deshacer">Deshacer</button>';else if(x.responsable_actual==='Finalizado')act='<button class="mini undo actionBtn" data-id="'+x.id+'" data-action="deshacer">Deshacer</button>';return '<tr><td><b>'+esc(x.numero_anticipo)+'</b></td><td>'+esc(ml(x.periodo))+'</td><td>'+esc(x.unidad)+'</td><td>'+esc(x.proveedor)+'</td><td>'+money(x.monto_anticipo)+'</td><td>'+esc(x.tt||'—')+'</td><td>'+esc(x.estado_es)+'</td><td>'+esc(x.estado_gt)+'</td><td><span class="pill '+c+'">'+esc(x.responsable_actual)+'</span></td><td>'+esc(dt(x.ultima_modificacion_at))+'</td><td>'+esc(x.ultima_modificacion_email||'—')+'</td><td>'+act+'</td></tr>'}).join('');document.querySelectorAll('.actionBtn').forEach(btn=>{btn.onclick=()=>go(Number(btn.dataset.id),btn.dataset.action)})}
+async function go(id,accion){const actor=$('actor').value.trim()||'Compartido';try{await api('rpc/procesar_anticipo_publico',{method:'POST',headers:{'Prefer':'return=representation'},body:JSON.stringify({p_anticipo_id:id,p_accion:accion,p_actor:actor})});await load(true)}catch(e){alert('No se pudo guardar el cambio: '+e.message)}}
+$('q').oninput=render;$('rf').onchange=render;$('ref').onclick=()=>load(false);
 const MONTHS={ENERO:1,FEBRERO:2,MARZO:3,ABRIL:4,MAYO:5,JUNIO:6,JULIO:7,AGOSTO:8,SEPTIEMBRE:9,OCTUBRE:10,NOVIEMBRE:11,DICIEMBRE:12};
-const text=v=>v===undefined||v===null||v===''?null:String(v).trim();
-const num=v=>{if(v===undefined||v===null||v==='')return null;const n=Number(String(v).replace(/,/g,''));return Number.isFinite(n)?n:null};
-const antNo=v=>{if(v===undefined||v===null||v==='')return null;let z=String(v).trim();if(/^\d+(\.0+)?$/.test(z))z=String(parseInt(z));return z.toUpperCase().startsWith('ANT-')?z:'ANT-'+z};
-const iso=v=>v instanceof Date&&!isNaN(v)?v.toISOString().slice(0,10):null;
-function parseBook(wb){
-  const out=[];
-  wb.SheetNames.forEach(name=>{
-    const mt=name.trim().toUpperCase().match(/^(ENERO|FEBRERO|MARZO|ABRIL|MAYO|JUNIO|JULIO|AGOSTO|SEPTIEMBRE|OCTUBRE|NOVIEMBRE|DICIEMBRE)\s+(\d{4})$/);if(!mt)return;
-    const periodo=mt[2]+'-'+String(MONTHS[mt[1]]).padStart(2,'0')+'-01';
-    const m=XLSX.utils.sheet_to_json(wb.Sheets[name],{header:1,defval:null,raw:true});let h=-1;
-    for(let i=0;i<Math.min(15,m.length);i++){if((m[i]||[]).some(x=>String(x??'').toUpperCase().includes('NUMERO DE ANTICIPO')||String(x??'').toUpperCase().includes('NÚMERO DE ANTICIPO'))){h=i;break}}
-    if(h<0)return;
-    m.slice(h+1).forEach(r=>{const a=antNo(r[1]);if(!a)return;out.push({numero_anticipo:a,periodo,fecha:iso(r[0]),codigo_sn:text(r[2]),proveedor:text(r[3]),info_detallada:text(r[4]),centro_costo:text(r[5]),unidad:text(r[6]),monto_anticipo:num(r[7]),tt:text(r[17]),observaciones:text(r[18]),notas_siguiente_mes:text(r[19])})});
-  });
-  return out;
-}
-$('import').onclick=async()=>{
-  const f=$('excel').files[0];if(!f){alert('Selecciona el Excel.');return}
-  $('import').disabled=true;$('imsg').className='msg';$('imsg').textContent='Leyendo Excel...';
-  try{
-    const ab=await f.arrayBuffer(),wb=XLSX.read(ab,{type:'array',cellDates:true}),data=parseBook(wb);
-    if(!data.length)throw new Error('No encontré anticipos en pestañas MES AÑO.');
-    $('imsg').textContent='Cargando '+data.length+' anticipos...';
-    for(let i=0;i<data.length;i+=150){const {error}=await s.rpc('importar_anticipos_publico',{p_rows:data.slice(i,i+150)});if(error)throw error}
-    $('imsg').className='msg ok';$('imsg').textContent='Listo: '+data.length+' anticipos importados/actualizados.';await load();
-  }catch(e){$('imsg').className='msg err';$('imsg').textContent='Error: '+e.message}
-  finally{$('import').disabled=false}
-};
-
-s.channel('alisa-simple')
-  .on('postgres_changes',{event:'*',schema:'public',table:'anticipos'},()=>load())
-  .subscribe(st=>{
-    $('conn').textContent=st==='SUBSCRIBED'?'EN TIEMPO REAL':(st==='CHANNEL_ERROR'?'ERROR CONEXIÓN':'CONECTANDO');
-  });
-load();
-let sec=30;
-$('countdown').textContent='Auto 30 s';
-setInterval(()=>{
-  sec--;
-  $('countdown').textContent='Auto '+sec+' s';
-  if(sec<=0){sec=30;load();}
-},1000);
+const text=v=>v===undefined||v===null||v===''?null:String(v).trim();const num=v=>{if(v===undefined||v===null||v==='')return null;const n=Number(String(v).replace(/,/g,''));return Number.isFinite(n)?n:null};const antNo=v=>{if(v===undefined||v===null||v==='')return null;let z=String(v).trim();if(/^\d+(\.0+)?$/.test(z))z=String(parseInt(z));return z.toUpperCase().startsWith('ANT-')?z:'ANT-'+z};const iso=v=>v instanceof Date&&!isNaN(v)?v.toISOString().slice(0,10):null;
+function parseBook(wb){const out=[];wb.SheetNames.forEach(name=>{const mt=name.trim().toUpperCase().match(/^(ENERO|FEBRERO|MARZO|ABRIL|MAYO|JUNIO|JULIO|AGOSTO|SEPTIEMBRE|OCTUBRE|NOVIEMBRE|DICIEMBRE)\s+(\d{4})$/);if(!mt)return;const periodo=mt[2]+'-'+String(MONTHS[mt[1]]).padStart(2,'0')+'-01';const m=XLSX.utils.sheet_to_json(wb.Sheets[name],{header:1,defval:null,raw:true});let h=-1;for(let i=0;i<Math.min(15,m.length);i++){if((m[i]||[]).some(x=>/NUMERO DE ANTICIPO|NÚMERO DE ANTICIPO/i.test(String(x??'')))){h=i;break}}if(h<0)return;m.slice(h+1).forEach(r=>{const a=antNo(r[1]);if(!a)return;out.push({numero_anticipo:a,periodo,fecha:iso(r[0]),codigo_sn:text(r[2]),proveedor:text(r[3]),info_detallada:text(r[4]),centro_costo:text(r[5]),unidad:text(r[6]),monto_anticipo:num(r[7]),tt:text(r[17]),observaciones:text(r[18]),notas_siguiente_mes:text(r[19])})})});return out}
+$('import').onclick=async()=>{const f=$('excel').files[0];if(!f){alert('Selecciona el Excel.');return}if(typeof XLSX==='undefined'){$('imsg').className='msg err';$('imsg').textContent='No se pudo cargar el lector de Excel. El tablero sigue funcionando normalmente.';return}$('import').disabled=true;$('imsg').className='msg';$('imsg').textContent='Leyendo Excel...';try{const wb=XLSX.read(await f.arrayBuffer(),{type:'array',cellDates:true}),data=parseBook(wb);if(!data.length)throw new Error('No encontré anticipos en pestañas MES AÑO.');let total=0;for(let i=0;i<data.length;i+=100){const result=await api('rpc/importar_anticipos_publico',{method:'POST',body:JSON.stringify({p_rows:data.slice(i,i+100)})});total+=Number(result||0)}$('imsg').className='msg ok';$('imsg').textContent='Listo: '+total+' anticipos importados/actualizados.';await load(true)}catch(e){$('imsg').className='msg err';$('imsg').textContent='Error: '+e.message}finally{$('import').disabled=false}};
+let sec=5;$('countdown').textContent='Auto 5 s';setInterval(()=>{sec--;$('countdown').textContent='Auto '+sec+' s';if(sec<=0){sec=5;load(true)}},1000);
+load(false);
 </script>
 </body></html>
