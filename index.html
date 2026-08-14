@@ -98,11 +98,14 @@ function render(){
   $('body').innerHTML=v.map(x=>{
     const c=x.responsable_actual==='El Salvador'?'es':x.responsable_actual==='Guatemala'?'gt':x.responsable_actual==='Finalizado'?'fin':'rev';
     let act='';
-    if(x.responsable_actual==='El Salvador')act='<button class="mini esb" onclick="go('+x.id+',\\'hecho_es\\')">Hecho ES</button>';
-    else if(x.responsable_actual==='Guatemala')act='<button class="mini gtb" onclick="go('+x.id+',\\'hecho_gt\\')">Hecho GT</button> <button class="mini undo" onclick="go('+x.id+',\\'deshacer\\')">Deshacer</button>';
-    else if(x.responsable_actual==='Finalizado')act='<button class="mini undo" onclick="go('+x.id+',\\'deshacer\\')">Deshacer</button>';
+    if(x.responsable_actual==='El Salvador')act='<button class="mini esb actionBtn" data-id="'+x.id+'" data-action="hecho_es">Hecho ES</button>';
+    else if(x.responsable_actual==='Guatemala')act='<button class="mini gtb actionBtn" data-id="'+x.id+'" data-action="hecho_gt">Hecho GT</button> <button class="mini undo actionBtn" data-id="'+x.id+'" data-action="deshacer">Deshacer</button>';
+    else if(x.responsable_actual==='Finalizado')act='<button class="mini undo actionBtn" data-id="'+x.id+'" data-action="deshacer">Deshacer</button>';
     return '<tr><td><b>'+esc(x.numero_anticipo)+'</b></td><td>'+esc(ml(x.periodo))+'</td><td>'+esc(x.unidad)+'</td><td>'+esc(x.proveedor)+'</td><td>'+money(x.monto_anticipo)+'</td><td>'+esc(x.tt||'—')+'</td><td>'+esc(x.estado_es)+'</td><td>'+esc(x.estado_gt)+'</td><td><span class="pill '+c+'">'+esc(x.responsable_actual)+'</span></td><td>'+esc(dt(x.ultima_modificacion_at))+'</td><td>'+esc(x.ultima_modificacion_email||'—')+'</td><td>'+act+'</td></tr>';
   }).join('');
+  document.querySelectorAll('.actionBtn').forEach(btn=>{
+    btn.onclick=()=>go(Number(btn.dataset.id),btn.dataset.action);
+  });
 }
 async function go(id,accion){
   const actor=$('actor').value.trim()||'Compartido';
@@ -142,8 +145,18 @@ $('import').onclick=async()=>{
   finally{$('import').disabled=false}
 };
 
-s.channel('alisa-simple').on('postgres_changes',{event:'*',schema:'public',table:'anticipos'},()=>load()).subscribe(st=>$('conn').textContent=st==='SUBSCRIBED'?'EN TIEMPO REAL':'EN LÍNEA');
+s.channel('alisa-simple')
+  .on('postgres_changes',{event:'*',schema:'public',table:'anticipos'},()=>load())
+  .subscribe(st=>{
+    $('conn').textContent=st==='SUBSCRIBED'?'EN TIEMPO REAL':(st==='CHANNEL_ERROR'?'ERROR CONEXIÓN':'CONECTANDO');
+  });
 load();
-setInterval(load,30000);
+let sec=30;
+$('countdown').textContent='Auto 30 s';
+setInterval(()=>{
+  sec--;
+  $('countdown').textContent='Auto '+sec+' s';
+  if(sec<=0){sec=30;load();}
+},1000);
 </script>
 </body></html>
