@@ -1966,8 +1966,8 @@ tbody tr:hover{background:rgba(76,184,196,.05)!important}
           </div>
 
           <div class="journey-copy">
-            <b>Subidos</b>
-            <span>Base del período</span>
+            <b>Cargados en ALISA</b>
+            <span>Carga inicial de Guatemala</span>
           </div>
 
           <div class="journey-progress">
@@ -2005,7 +2005,7 @@ tbody tr:hover{background:rgba(76,184,196,.05)!important}
 
           <div class="journey-copy">
             <b>Entregados</b>
-            <span>Completados por El Salvador</span>
+            <span>Entregados por El Salvador</span>
           </div>
 
           <div class="journey-progress">
@@ -2023,7 +2023,7 @@ tbody tr:hover{background:rgba(76,184,196,.05)!important}
           <div class="conversion-badge">
             <small>EL SALVADOR → GUATEMALA</small>
             <strong id="conversionGT">0%</strong>
-            <span>confirmado</span>
+            <span>finalizado</span>
           </div>
         </div>
 
@@ -2042,8 +2042,8 @@ tbody tr:hover{background:rgba(76,184,196,.05)!important}
           </div>
 
           <div class="journey-copy">
-            <b>Confirmados</b>
-            <span>Liquidados por Guatemala</span>
+            <b>Finalizados</b>
+            <span>Cerrados por Guatemala</span>
           </div>
 
           <div class="journey-progress">
@@ -2076,7 +2076,7 @@ tbody tr:hover{background:rgba(76,184,196,.05)!important}
         </div>
 
         <div class="insight-stat accent-stat">
-          <small>CONVERSIÓN A GUATEMALA</small>
+          <small>FINALIZACIÓN EN GUATEMALA</small>
           <strong id="flowConversion">0%</strong>
           <span>sobre lo entregado</span>
         </div>
@@ -2101,7 +2101,7 @@ tbody tr:hover{background:rgba(76,184,196,.05)!important}
       <div class="panel-title">
         <div>
           <span class="mini-title">AVANCE FINAL</span>
-          <h2>Confirmación Guatemala</h2>
+          <h2>Finalización Guatemala</h2>
         </div>
       </div>
       <div class="ring-wrap">
@@ -2117,7 +2117,7 @@ tbody tr:hover{background:rgba(76,184,196,.05)!important}
       </div>
       <div class="completion-note">
         <b id="remainingCount">0</b>
-        <span>anticipos todavía no han llegado a la confirmación final.</span>
+        <span>anticipos todavía no han finalizado el proceso.</span>
       </div>
     </article>
 <article class="bi-panel pending-panel">
@@ -2185,7 +2185,8 @@ tbody tr:hover{background:rgba(76,184,196,.05)!important}
 <div id="toast" class="toast"></div>
 <script>
 const SUPABASE_URL='https://tggwhwveiimdeisjbjgp.supabase.co';const KEY='sb_publishable_GfgePEohuGAMYPfW8EGxzQ_hOM-Zzui';const REST=SUPABASE_URL+'/rest/v1';const AUTH=SUPABASE_URL+'/auth/v1';const $=id=>document.getElementById(id);
-let summaries=[],selectedPeriod='',session=null,user=null,profile=null,rows=[],authMode='login',sec=5;
+/* FIX V6.10: providers debe existir para el Top 8 público */
+let summaries=[],providers=[],selectedPeriod='',session=null,user=null,profile=null,rows=[],authMode='login',sec=5;
 const esc=v=>String(v??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));const money=v=>new Intl.NumberFormat('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}).format(Number(v)||0);const dt=v=>v?new Intl.DateTimeFormat('es-GT',{dateStyle:'short',timeStyle:'short'}).format(new Date(v)):'—';const monthLabel=p=>{if(!p)return'Todos';const[y,m]=p.split('-'),a=['','ENERO','FEBRERO','MARZO','ABRIL','MAYO','JUNIO','JULIO','AGOSTO','SEPTIEMBRE','OCTUBRE','NOVIEMBRE','DICIEMBRE'];return a[+m]+' '+y};
 function isCoralsa(email){return /^[^@\s]+@coralsa\.com(\.gt)?$/i.test(String(email||'').trim())}function toast(t,type='ok'){const e=$('toast');e.textContent=t;e.className='toast '+type+' show';setTimeout(()=>e.classList.remove('show'),3000)}
 async function publicApi(path,options={}){const res=await fetch(REST+'/'+path,{...options,headers:{apikey:KEY,'Content-Type':'application/json',...(options.headers||{})}});const txt=await res.text();let data=null;try{data=txt?JSON.parse(txt):null}catch{data=txt}if(!res.ok)throw new Error(data?.message||data?.hint||txt||('HTTP '+res.status));return data}
@@ -2223,8 +2224,8 @@ function renderProvidersChart(){
     const amount=Number(x.monto_pendiente)||0;
     const width=Math.max(2,(amount/max)*100);
     const parts=[];
-    if(Number(x.pendientes_es))parts.push('ES '+x.pendientes_es);
-    if(Number(x.pendientes_gt))parts.push('GT '+x.pendientes_gt);
+    if(Number(x.pendientes_es))parts.push('El Salvador '+x.pendientes_es);
+    if(Number(x.pendientes_gt))parts.push('Guatemala '+x.pendientes_gt);
     if(Number(x.en_revision))parts.push('Revisión '+x.en_revision);
     return '<div class="provider-row">'+
       '<div class="provider-name" title="'+esc(x.proveedor)+'">'+
